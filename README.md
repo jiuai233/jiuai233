@@ -1,16 +1,18 @@
-## Hi there 👋
+<p align="center">
+  <img src="assets/boqi.png" width="80%" />
+</p>
 
-<!--
-**jiuai233/jiuai233** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+> 「一个人写代码也没关系，声音总会被听见」
 
-Here are some ideas to get you started:
+---
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+### 🛠 Tech Stack
+- 🌸 Frontend：Vue / React / Next.js  
+- ⚙️ Backend：Flask / Node.js  
+-  UI：Tailwind CSS / Element Plus  
+- ☁ Deploy：Docker / Linux / Nginx  
+
+---
+
+
+
