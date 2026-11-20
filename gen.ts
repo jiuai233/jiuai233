@@ -11,7 +11,6 @@ mkdirSync(CACHE, { recursive: true });
 
 // ── 数据 ────────────────────────────────────────────────────────────────
 
-type Day = { date: string; contributionCount: number; contributionLevel: string; weekday: number };
 type Repo = {
   name: string;
   isFork: boolean;
@@ -25,28 +24,15 @@ const BILI: { name: string; face: string } = {
   face: readFileSync(join(ROOT, "data/bili-face.jpg")).toString("base64"),
 };
 
-const TZ = "Asia/Shanghai";
-const now = new Date();
-const today = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(now);
-const weekday = new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(now).toUpperCase();
-const dotted = (ymd: string) => ymd.replaceAll("-", ".");
-
 const repos: Repo[] = user.repositories.nodes;
 const own = repos.filter((r) => !r.isFork && r.name !== user.login);
-const cc = user.contributionsCollection;
-const weeks: { contributionDays: Day[] }[] = cc.contributionCalendar.weeks;
-const days = weeks.flatMap((w) => w.contributionDays);
-
-let bestStreak = 0;
-for (let run = 0, i = 0; i < days.length; i++) {
-  run = days[i].contributionCount > 0 ? run + 1 : 0;
-  bestStreak = Math.max(bestStreak, run);
-}
-const hottest = days.reduce((a, b) => (b.contributionCount > a.contributionCount ? b : a));
-const contributions: number = cc.contributionCalendar.totalContributions;
 
 const langBytes = new Map<string, number>();
-for (const r of own) for (const e of r.languages.edges) langBytes.set(e.node.name, (langBytes.get(e.node.name) ?? 0) + e.size);
+for (const r of own) {
+  for (const e of r.languages.edges) {
+    langBytes.set(e.node.name, (langBytes.get(e.node.name) ?? 0) + e.size);
+  }
+}
 const langTotal = [...langBytes.values()].reduce((a, b) => a + b, 0);
 const langSorted = [...langBytes].sort((a, b) => b[1] - a[1]);
 const langs = langSorted.slice(0, 3).map(([name, size]) => ({ name, pct: (size / langTotal) * 100 }));
@@ -67,35 +53,94 @@ const FILL = {
 
 type Theme = {
   name: "dark" | "light";
-  card: string; surface: string; line: string; strong: string;
-  text: string; muted: string; faint: string;
-  orange: string; blue: string; pink: string; yellow: string;
-  board: string; ledOff: string; led: [string, string, string];
-  spot: number; glow: number; levels: string[]; grip: string;
-  ink: string; paper: string; cable: string; shadow: number; pedalEdge: string;
-  amp: string; ampEdge: string; grille: string;
+  text: string;
+  muted: string;
+  faint: string;
+  orange: string;
+  blue: string;
+  pink: string;
+  yellow: string;
+  // 实体硬件（LED 招牌 / 效果器板）：明暗主题都保持真实深色机身质感
+  chassis: string;
+  chassisEdge: string;
+  board: string;
+  boardRail: string;
+  boardEdge: string;
+  ledOff: string;
+  led: [string, string, string];
+  spot: number;
+  glow: number;
+  // 纸质物件（拍立得 / 门票 / 通行证）
+  ink: string;
+  paper: string;
+  ticket: string;
+  ticketEdge: string;
+  passBg: string;
+  passEdge: string;
+  highlight: number;
+  cable: string;
+  shadow: number;
+  pedalEdge: string;
 };
 
 const DARK: Theme = {
   name: "dark",
-  card: "#201e28", surface: "#292632", line: "#3a3446", strong: "#837b93",
-  text: "#eeeaf4", muted: "#bbb3c7", faint: "#8d859d",
-  orange: FILL.orange, blue: FILL.blue, pink: FILL.pink, yellow: FILL.yellow,
-  board: "#17151d", ledOff: "#272330", led: [FILL.orange, FILL.pink, FILL.blue],
-  spot: 0.2, glow: 0.65, levels: ["", "#56668f", FILL.blue, FILL.pink, FILL.orange], grip: "#4a4458",
-  ink: "#2b2635", paper: "#f7f4f0", cable: "#0f0e13", shadow: 0.5, pedalEdge: "none",
-  amp: "#141219", ampEdge: "#3a3446", grille: "#2c2836",
+  text: "#f1edf8",
+  muted: "#bdb4ca",
+  faint: "#8e85a0",
+  orange: FILL.orange,
+  blue: FILL.blue,
+  pink: FILL.pink,
+  yellow: FILL.yellow,
+  chassis: "#181620",
+  chassisEdge: "#383247",
+  board: "#191722",
+  boardRail: "#242030",
+  boardEdge: "#393349",
+  ledOff: "#262232",
+  led: [FILL.orange, FILL.pink, FILL.blue],
+  spot: 0.24,
+  glow: 0.7,
+  ink: "#2b2635",
+  paper: "#f8f4ee",
+  ticket: "#221f2d",
+  ticketEdge: "#403952",
+  passBg: "#221f2d",
+  passEdge: "#443d57",
+  highlight: 0.22,
+  cable: "#0c0b10",
+  shadow: 0.55,
+  pedalEdge: "rgba(255,255,255,0.12)",
 };
 
 const LIGHT: Theme = {
   name: "light",
-  card: "#fcfbfe", surface: "#f4f1f8", line: "#e3ddec", strong: "#b6aec5",
-  text: "#2b2635", muted: "#5d566b", faint: "#736c86",
-  orange: "#b95a1d", blue: "#3566c9", pink: "#b8487f", yellow: "#9a6b00",
-  board: "#f1edf6", ledOff: "#e7e1ef", led: ["#ee8c4a", "#e06fa8", "#5f8ff0"],
-  spot: 0.16, glow: 0.4, levels: ["", "#c3d4fa", "#7ea4f0", "#df7bb0", "#ec8a47"], grip: "#b6aec5",
-  ink: "#2b2635", paper: "#ffffff", cable: "#3a3346", shadow: 0.2, pedalEdge: "rgba(43,38,53,0.18)",
-  amp: "#2b2635", ampEdge: "none", grille: "#463f53",
+  text: "#2b2635",
+  muted: "#5f5870",
+  faint: "#827a96",
+  orange: "#c45f1c",
+  blue: "#3566c9",
+  pink: "#bf4883",
+  yellow: "#9a6b00",
+  chassis: "#23202d",
+  chassisEdge: "#3e394d",
+  board: "#262332",
+  boardRail: "#322e42",
+  boardEdge: "#464059",
+  ledOff: "#332e42",
+  led: [FILL.orange, FILL.pink, FILL.blue],
+  spot: 0.2,
+  glow: 0.55,
+  ink: "#2b2635",
+  paper: "#ffffff",
+  ticket: "#fcf9f4",
+  ticketEdge: "#ddd4c8",
+  passBg: "#ffffff",
+  passEdge: "#e0d7ec",
+  highlight: 0.34,
+  cable: "#2d2838",
+  shadow: 0.22,
+  pedalEdge: "rgba(43,38,53,0.16)",
 };
 
 // ── 字体：按卡片实际用到的字向 Google Fonts 要子集，内嵌成 data URI ─────
@@ -139,7 +184,6 @@ async function fontFaces(chars: Map<string, Set<string>>): Promise<string> {
     if (!text) continue;
     const url = `https://fonts.googleapis.com/css2?family=${SPEC[family]}&text=${encodeURIComponent(text)}`;
     const css = (await cached(url, url)).toString("utf8");
-    // 可变字体的几个字重会指向同一个文件，合并成一条字重区间
     const weightsBySrc = new Map<string, number[]>();
     for (const m of css.matchAll(/@font-face\s*{([^}]*)}/g)) {
       const src = /url\(([^)]+)\)/.exec(m[1])?.[1];
@@ -161,7 +205,7 @@ async function fontFaces(chars: Map<string, Set<string>>): Promise<string> {
 
 const n = (v: number) => String(Math.round(v * 100) / 100);
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const isWide = (ch: string) => /[⺀-￿]/.test(ch);
+const isWide = (ch: string) => /[\u2e80-\uffff]/.test(ch);
 
 function measure(s: string, size: number, mono = false): number {
   let w = 0;
@@ -179,11 +223,16 @@ function rng(seed: string) {
   };
 }
 
-// [文字, 填充色, 额外的 tspan 属性]
 type Seg = [string, string?, string?];
 type TextOpts = {
-  role?: Role; size?: number; weight?: number; fill?: string;
-  anchor?: "start" | "middle" | "end"; ls?: number; opacity?: number; attrs?: string;
+  role?: Role;
+  size?: number;
+  weight?: number;
+  fill?: string;
+  anchor?: "start" | "middle" | "end";
+  ls?: number;
+  opacity?: number;
+  attrs?: string;
 };
 
 class Card {
@@ -216,7 +265,10 @@ class Card {
     }
     const family = STACK[role].map((f) => `'${f}'`).join(",") + (role === "mono" ? ",monospace" : ",sans-serif");
     const attrs = [
-      `x="${n(x)}"`, `y="${n(y)}"`, `font-family="${family}"`, `font-size="${o.size ?? 14}"`,
+      `x="${n(x)}"`,
+      `y="${n(y)}"`,
+      `font-family="${family}"`,
+      `font-size="${o.size ?? 14}"`,
       o.weight ? `font-weight="${o.weight}"` : "",
       `fill="${o.fill ?? this.t.text}"`,
       o.anchor && o.anchor !== "start" ? `text-anchor="${o.anchor}"` : "",
@@ -236,7 +288,6 @@ class Card {
   }
 }
 
-// 拨片形状，当作每张卡片的标题符号
 const PICK = "M0,-7 C5.5,-7 8,-4.5 8,-1 C8,3.5 3,8 0,10 C-3,8 -8,3.5 -8,-1 C-8,-4.5 -5.5,-7 0,-7 Z";
 const SPARK = (s: number) => `M0,${-s} Q0,0 ${s},0 Q0,0 0,${s} Q0,0 ${-s},0 Q0,0 0,${-s} Z`;
 const HEART = "M0,4 C0,0 -6,-2 -8,2 C-10,6 -4,10 0,13 C4,10 10,6 8,2 C6,-2 0,0 0,4 Z";
@@ -252,7 +303,6 @@ function star(r: number): string {
   return `M${pts.join(" L")} Z`;
 }
 
-// 模切贴纸：错位的阴影垫底，再垫一圈白边，最后画本体。cut 是不带颜色的轮廓图形
 type Decal = { cut: string; body: string };
 
 function sticker(t: Theme, x: number, y: number, rot: number, scale: number, { cut, body }: Decal, edge = 3.5): string {
@@ -260,7 +310,7 @@ function sticker(t: Theme, x: number, y: number, rot: number, scale: number, { c
   const outline = `stroke-width="${n((edge * 2) / scale)}" stroke-linejoin="round" stroke-linecap="round"`;
   return [
     `<g transform="translate(${x} ${y})">`,
-    `<g transform="translate(1.5 2.5)" opacity="${t.shadow}"><g transform="${at}" fill="#000" stroke="#000" ${outline}>${cut}</g></g>`,
+    `<g transform="translate(1.5 2.5)" opacity="${t.shadow * 0.85}"><g transform="${at}" fill="#000" stroke="#000" ${outline}>${cut}</g></g>`,
     `<g transform="${at}" fill="#fff" stroke="#fff" ${outline}>${cut}</g>`,
     `<g transform="${at}">${body}</g>`,
     `</g>`,
@@ -271,7 +321,7 @@ const DECAL = {
   star: (fill: string): Decal => ({ cut: `<path d="${star(12)}"/>`, body: `<path d="${star(12)}" fill="${fill}"/>` }),
   heart: (fill: string): Decal => ({ cut: `<path d="${HEART}"/>`, body: `<path d="${HEART}" fill="${fill}"/>` }),
   bolt: (fill: string): Decal => ({ cut: `<path d="${BOLT}"/>`, body: `<path d="${BOLT}" fill="${fill}"/>` }),
-  // 竖放的电吉他，琴头朝上，长约 66
+  pick: (fill: string): Decal => ({ cut: `<path d="${PICK}"/>`, body: `<path d="${PICK}" fill="${fill}"/>` }),
   guitar: (fill: string, ink: string): Decal => {
     const shape = `<rect x="-4" y="-34" width="8" height="12" rx="2.5"/><rect x="-2.2" y="-24" width="4.4" height="27"/><circle cx="0" cy="3" r="8.5"/><circle cx="0" cy="15" r="12"/>`;
     return {
@@ -287,20 +337,11 @@ const DECAL = {
   },
 };
 
-function cardFrame(c: Card) {
-  c.add(`<rect x="0.5" y="0.5" width="${c.w - 1}" height="${c.h - 1}" rx="20" fill="${c.t.card}" stroke="${c.t.line}"/>`);
+function screw(cx: number, cy: number, fill = "#353045", stroke = "#625a78"): string {
+  return `<circle cx="${cx}" cy="${cy}" r="3.6" fill="${fill}" stroke="${stroke}" stroke-width="1"/><path d="M${cx - 2.2},${cy} H${cx + 2.2}" stroke="${stroke}" stroke-width="1"/>`;
 }
 
-function titleRow(c: Card, label: string, sub: string, right: Seg[], y = 42) {
-  const t = c.t;
-  c.add(`<path d="${PICK}" transform="translate(38 ${y - 5}) rotate(-14)" fill="${t.orange}"/>`);
-  c.add(c.text(54, y, label, { role: "mono", size: 13, weight: 700, fill: t.text, ls: 2.5 }));
-  const subX = 54 + label.length * (13 * 0.6 + 2.5) + 10;
-  c.add(c.text(subX, y, sub, { size: 12.5, fill: t.muted }));
-  c.add(c.text(c.w - 36, y, right, { role: "mono", size: 12, fill: t.faint, anchor: "end" }));
-}
-
-// ── 1 · 演出传单 ────────────────────────────────────────────────────────
+// ── 1 · 主视觉拼贴：LED 招牌 + 拍立得 + 独白 + Demo 磁带（透明底）────
 
 const GLYPHS: Record<string, string[]> = {
   J: ["#####", "...#.", "...#.", "...#.", "#..#.", "#..#.", ".##.."],
@@ -311,529 +352,541 @@ const GLYPHS: Record<string, string[]> = {
   "3": [".###.", "#...#", "....#", "..##.", "....#", "#...#", ".###."],
 };
 
-function header(t: Theme): Card {
-  const c = new Card(t, 900, 360);
-  cardFrame(c);
+function hero(t: Theme): Card {
+  const c = new Card(t, 900, 480);
 
   c.defs.push(
-    `<clipPath id="cardClip"><rect width="900" height="360" rx="20"/></clipPath>`,
+    `<filter id="sh" x="-12%" y="-12%" width="128%" height="132%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="${t.shadow}"/></filter>`,
+    `<filter id="shSoft" x="-12%" y="-12%" width="128%" height="132%"><feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#000" flood-opacity="${t.shadow * 0.85}"/></filter>`,
+    `<filter id="glow" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="6"/></filter>`,
+  );
+
+  // ── 顶部：Live House LED 招牌灯箱 ──
+  const mx = 34;
+  const my = 16;
+  const mw = 832;
+  const mh = 164;
+  c.defs.push(
+    `<clipPath id="mqClip"><rect x="${mx}" y="${my}" width="${mw}" height="${mh}" rx="18"/></clipPath>`,
     `<linearGradient id="spA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${FILL.orange}" stop-opacity="${t.spot}"/><stop offset="1" stop-color="${FILL.orange}" stop-opacity="0"/></linearGradient>`,
     `<linearGradient id="spB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${FILL.blue}" stop-opacity="${t.spot}"/><stop offset="1" stop-color="${FILL.blue}" stop-opacity="0"/></linearGradient>`,
   );
   c.css.push(
     ".spot{transform-box:view-box}",
-    ".spa{transform-origin:150px -30px;animation:spa 7s ease-in-out infinite alternate}",
-    ".spb{transform-origin:750px -30px;animation:spb 8s ease-in-out infinite alternate}",
-    "@keyframes spa{from{transform:rotate(-14deg)}to{transform:rotate(18deg)}}",
-    "@keyframes spb{from{transform:rotate(14deg)}to{transform:rotate(-18deg)}}",
+    ".spa{transform-origin:170px 0px;animation:spa 7s ease-in-out infinite alternate}",
+    ".spb{transform-origin:730px 0px;animation:spb 8s ease-in-out infinite alternate}",
+    "@keyframes spa{from{transform:rotate(-16deg)}to{transform:rotate(16deg)}}",
+    "@keyframes spb{from{transform:rotate(16deg)}to{transform:rotate(-16deg)}}",
+    ".sweep{animation:sweep 5.5s ease-in-out infinite}",
+    "@keyframes sweep{0%{transform:translateX(0)}55%,100%{transform:translateX(1060px)}}",
+    ".tw{transform-box:fill-box;transform-origin:center;animation:tw 2.8s ease-in-out infinite}",
+    "@keyframes tw{0%,100%{opacity:.25;transform:scale(.55)}50%{opacity:1;transform:scale(1)}}",
+    ".reel{transform-box:fill-box;transform-origin:center;animation:reel 2.6s linear infinite}",
+    "@keyframes reel{to{transform:rotate(360deg)}}",
   );
+
+  // 灯箱外壳
   c.add(
-    `<g clip-path="url(#cardClip)">`,
-    `<polygon class="spot spa" points="150,-30 0,360 300,360" fill="url(#spA)"/>`,
-    `<polygon class="spot spb" points="750,-30 600,360 900,360" fill="url(#spB)"/>`,
+    `<g filter="url(#sh)">`,
+    `<rect x="${mx}" y="${my}" width="${mw}" height="${mh}" rx="18" fill="${t.chassis}" stroke="${t.chassisEdge}" stroke-width="1.5"/>`,
+    `</g>`,
+    `<g clip-path="url(#mqClip)">`,
+    `<polygon class="spot spa" points="170,0 30,200 310,200" fill="url(#spA)"/>`,
+    `<polygon class="spot spb" points="730,0 590,200 870,200" fill="url(#spB)"/>`,
     `</g>`,
   );
 
-  c.add(`<path d="${PICK}" transform="translate(38 37) rotate(-14)" fill="${t.orange}"/>`);
-  c.add(c.text(54, 42, "ONE-MAN LIVE", { role: "mono", size: 13, weight: 700, ls: 2.5 }));
-  c.add(c.text(54 + 12 * 10.3 + 10, 42, "ワンマンライブ", { size: 12.5, fill: t.muted }));
-  c.add(c.text(864, 42, [[`${dotted(today)} ${weekday}`, t.orange], [" @ GITHUB", t.faint]], { role: "mono", size: 12, anchor: "end" }));
-
-  // LED 招牌：底板 + 未点亮的灯珠 + 点亮的字
-  const word = "JIUAI233";
-  const gridC = word.length * 6 - 1 + 4;
-  const gridR = 9;
-  const bx = 32;
-  const bw = 836;
-  const p = bw / gridC;
-  const by = 60;
-  const bh = gridR * p;
-  const s = p * 0.82;
-  const g = (p - s) / 2;
-  const rx = s * 0.24;
-  c.defs.push(
-    `<pattern id="led" x="${n(bx)}" y="${n(by)}" width="${n(p)}" height="${n(p)}" patternUnits="userSpaceOnUse"><rect x="${n(g)}" y="${n(g)}" width="${n(s)}" height="${n(s)}" rx="${n(rx)}" fill="${t.ledOff}"/></pattern>`,
-    `<linearGradient id="ledGrad" gradientUnits="userSpaceOnUse" x1="${bx + 2 * p}" y1="0" x2="${bx + bw - 2 * p}" y2="0"><stop offset="0" stop-color="${t.led[0]}"/><stop offset="0.5" stop-color="${t.led[1]}"/><stop offset="1" stop-color="${t.led[2]}"/></linearGradient>`,
-    `<linearGradient id="sweepGrad" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="${t.name === "dark" ? 0.55 : 0.6}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`,
-    `<filter id="glow" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="7"/></filter>`,
+  // 灯箱顶部极细刻字（替代大标题栏，不做面板头）
+  c.add(
+    `<circle cx="${mx + 22}" cy="${my + 18}" r="3" fill="${FILL.orange}"/>`,
+    c.text(mx + 33, my + 22, "ONE-MAN LIVE · ワンマンライブ", { role: "mono", size: 10, fill: "#b6aec9", ls: 1.8 }),
+    c.text(mx + mw - 22, my + 22, "LIVE HOUSE · GITHUB", { role: "mono", size: 10, fill: "#8e85a6", anchor: "end", ls: 1.6 }),
   );
+
+  // LED 点阵
+  const word = "JIUAI233";
+  const gridC = word.length * 6 - 1 + 4; // 51
+  const gridR = 9;
+  const bx = mx + 20;
+  const bw = mw - 40; // 792
+  const p = bw / gridC;
+  const bh = gridR * p; // ~139.7 -> 稍微压缩高度用 792 宽会偏高，改 720 宽更修长利落
+  const ledW = 736;
+  const ledX = mx + (mw - ledW) / 2;
+  const lp = ledW / gridC;
+  const ledH = gridR * lp; // ~129.9
+  const ledY = my + 32;
+  const s = lp * 0.8;
+  const g = (lp - s) / 2;
+  const rx = s * 0.25;
+  void bx;
+  void bw;
+  void p;
+  void bh;
+
+  c.defs.push(
+    `<pattern id="led" x="${n(ledX)}" y="${n(ledY)}" width="${n(lp)}" height="${n(lp)}" patternUnits="userSpaceOnUse"><rect x="${n(g)}" y="${n(g)}" width="${n(s)}" height="${n(s)}" rx="${n(rx)}" fill="${t.ledOff}"/></pattern>`,
+    `<linearGradient id="ledGrad" gradientUnits="userSpaceOnUse" x1="${n(ledX + 2 * lp)}" y1="0" x2="${n(ledX + ledW - 2 * lp)}" y2="0"><stop offset="0" stop-color="${t.led[0]}"/><stop offset="0.5" stop-color="${t.led[1]}"/><stop offset="1" stop-color="${t.led[2]}"/></linearGradient>`,
+    `<linearGradient id="sweepGrad" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`,
+  );
+
   const lit: string[] = [];
   [...word].forEach((ch, i) => {
     const rows = GLYPHS[ch];
     rows.forEach((row, r) =>
       [...row].forEach((cell, col) => {
         if (cell !== "#") return;
-        const x = bx + (2 + i * 6 + col) * p + g;
-        const y = by + (1 + r) * p + g;
+        const x = ledX + (2 + i * 6 + col) * lp + g;
+        const y = ledY + (1 + r) * lp + g;
         lit.push(`<rect x="${n(x)}" y="${n(y)}" width="${n(s)}" height="${n(s)}" rx="${n(rx)}"/>`);
       }),
     );
   });
   c.defs.push(`<g id="lit">${lit.join("")}</g>`, `<clipPath id="litClip">${lit.join("")}</clipPath>`);
-  c.css.push(".sweep{animation:sweep 5.5s ease-in-out infinite}", "@keyframes sweep{0%{transform:translateX(0)}55%,100%{transform:translateX(1100px)}}");
+
   c.add(
-    `<rect x="${bx}" y="${by}" width="${bw}" height="${n(bh)}" rx="12" fill="${t.board}"/>`,
-    `<rect x="${bx}" y="${by}" width="${bw}" height="${n(bh)}" rx="12" fill="url(#led)"/>`,
+    `<rect x="${n(ledX - 8)}" y="${n(ledY - 2)}" width="${n(ledW + 16)}" height="${n(ledH + 4)}" rx="10" fill="#12101a"/>`,
+    `<rect x="${n(ledX)}" y="${n(ledY)}" width="${n(ledW)}" height="${n(ledH)}" rx="8" fill="url(#led)"/>`,
     `<use href="#lit" fill="url(#ledGrad)" filter="url(#glow)" opacity="${t.glow}"/>`,
     `<use href="#lit" fill="url(#ledGrad)"/>`,
-    `<g clip-path="url(#litClip)"><g class="sweep"><rect x="-150" y="${by}" width="110" height="${n(bh)}" fill="url(#sweepGrad)" transform="skewX(-18)"/></g></g>`,
+    `<g clip-path="url(#litClip)"><g class="sweep"><rect x="-140" y="${n(ledY)}" width="110" height="${n(ledH)}" fill="url(#sweepGrad)" transform="skewX(-18)"/></g></g>`,
   );
 
-  c.css.push(
-    ".tw{transform-box:fill-box;transform-origin:center;animation:tw 2.8s ease-in-out infinite}",
-    "@keyframes tw{0%,100%{opacity:.25;transform:scale(.55)}50%{opacity:1;transform:scale(1)}}",
+  // 灯箱角落螺丝 + 破框贴纸（放在右下边框，不挡顶部文字）
+  for (const [sx, sy] of [[mx + 14, my + mh - 14], [mx + mw - 14, my + mh - 14]]) {
+    c.add(screw(sx, sy));
+  }
+  c.add(
+    sticker(t, mx + mw - 6, my + mh - 18, 18, 0.9, DECAL.bolt(FILL.orange)),
+    sticker(t, mx + mw - 38, my + mh - 4, -14, 0.82, DECAL.star(FILL.yellow)),
   );
-  const sparks: [number, number, number, string, number][] = [
-    [176, 236, 5, FILL.yellow, 0],
-    [724, 240, 6, FILL.pink, -1.1],
-    [330, 290, 4, FILL.blue, -0.6],
-    [574, 286, 4.5, FILL.yellow, -1.7],
-  ];
-  for (const [x, y, r, fill, delay] of sparks) {
-    // 动画的 transform 会覆盖元素自己的 transform，定位放在外层
+
+  // ── 右中：独白手写条 + 柔和荧光笔底纹 ──
+  const qx = 648;
+  const qy = 228;
+  c.add(
+    `<rect x="444" y="${qy - 11}" width="408" height="14" rx="7" fill="${FILL.yellow}" opacity="${t.highlight}" transform="rotate(-0.6 648 ${qy - 4})"/>`,
+    c.text(qx, qy, [["「", t.orange], ["自己一个人也没关系，声音总会被听见"], ["」", t.orange]], { role: "zh", size: 22.5, anchor: "middle" }),
+  );
+  for (const [x, y, r, fill, delay] of [
+    [438, 210, 5, FILL.yellow, 0],
+    [860, 218, 5.5, FILL.pink, -1.2],
+    [838, 244, 3.8, FILL.blue, -0.6],
+  ] as [number, number, number, string, number][]) {
     c.add(`<g transform="translate(${x} ${y})"><path class="tw" d="${SPARK(r)}" fill="${fill}" style="animation-delay:${delay}s"/></g>`);
   }
 
-  c.add(c.text(450, 256, [["「", t.orange], ["自己一个人也没关系，声音总会被听见"], ["」", t.orange]], { role: "zh", size: 28, anchor: "middle" }));
-
-  // 舞台：两侧音箱贴满贴纸，舞台前沿写主页地址
-  const floor = 314;
-  c.defs.push(`<pattern id="grille" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M0,5 L5,0 M-1,1 L1,-1 M4,6 L6,4" stroke="${t.grille}" stroke-width="1.2"/></pattern>`);
-  for (const ax of [48, 900 - 48 - 96]) {
-    const aw = 96;
-    c.add(
-      `<rect x="${ax}" y="${floor - 74}" width="${aw}" height="20" rx="3" fill="${t.amp}" stroke="${t.ampEdge}"/>`,
-      `<rect x="${ax + 5}" y="${floor - 70}" width="${aw - 10}" height="12" rx="2" fill="${FILL.yellow}" opacity="0.85"/>`,
-      `<circle cx="${ax + 12}" cy="${floor - 64}" r="2.2" fill="#ff5c7a"/>`,
-      `<circle cx="${ax + 12}" cy="${floor - 64}" r="4.5" fill="#ff5c7a" opacity="0.35" filter="url(#glow)"/>`,
-    );
-    for (let k = 0; k < 6; k++) c.add(`<circle cx="${ax + 30 + k * 11}" cy="${floor - 64}" r="2.6" fill="${t.amp}"/>`);
-    c.add(
-      `<rect x="${ax}" y="${floor - 52}" width="${aw}" height="52" rx="4" fill="${t.amp}" stroke="${t.ampEdge}"/>`,
-      `<rect x="${ax + 6}" y="${floor - 46}" width="${aw - 12}" height="40" rx="2" fill="url(#grille)"/>`,
-      `<rect x="${ax + 10}" y="${floor - 42}" width="22" height="5" rx="2.5" fill="${t.paper}" opacity="0.85"/>`,
-    );
-  }
+  // ── 左下（和纸胶带粘住灯箱下沿，不挡灯珠）：宽幅拍立得 ──
+  const fw = 368;
+  const fh = 290;
+  const fx = 42;
+  const fy = 174;
+  c.defs.push(`<clipPath id="ph"><rect x="16" y="20" width="336" height="209" rx="2"/></clipPath>`);
   c.add(
-    sticker(t, 116, floor - 24, 32, 0.72, DECAL.guitar(FILL.pink, "#2b2635")),
-    sticker(t, 790, floor - 22, -14, 0.95, DECAL.star(FILL.yellow)),
-    sticker(t, 828, floor - 30, 16, 0.9, DECAL.bolt(FILL.orange)),
-  );
-  c.add(`<rect x="${bx}" y="${floor}" width="${bw}" height="28" rx="8" fill="${t.surface}" stroke="${t.line}"/>`);
-  c.add(c.text(450, floor + 18.5, [["github.com/", t.faint], ["jiuai233", t.blue]], { role: "mono", size: 12, anchor: "middle" }));
-  return c;
-}
-
-// ── 2 · 成员档案 ────────────────────────────────────────────────────────
-
-function profile(t: Theme): Card {
-  const c = new Card(t, 900, 444);
-  cardFrame(c);
-  titleRow(c, "MEMBER PROFILE", "メンバープロフィール", [["No.", t.faint], ["233", t.orange]]);
-
-  // 宽幅拍立得（Instax Wide 108×86mm，画面 99×62mm）
-  const fw = 378;
-  const fh = 301;
-  const fx = 50;
-  const fy = 92;
-  c.defs.push(
-    `<filter id="sh" x="-10%" y="-10%" width="125%" height="130%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="${t.shadow}"/></filter>`,
-    `<clipPath id="ph"><rect x="16" y="22" width="346" height="217" rx="2"/></clipPath>`,
-  );
-  c.add(
-    `<g transform="translate(${fx} ${fy}) rotate(-3 ${fw / 2} ${fh / 2})">`,
-    `<rect width="${fw}" height="${fh}" rx="5" fill="${t.paper}" filter="url(#sh)"/>`,
-    `<image href="data:image/jpeg;base64,${photo}" x="16" y="22" width="346" height="217" preserveAspectRatio="xMidYMid slice" clip-path="url(#ph)"/>`,
-    `<rect x="16.5" y="22.5" width="345" height="216" rx="2" fill="none" stroke="#000" stroke-opacity="0.08"/>`,
-    c.text(34, 281, "Jiuai233", { role: "hand", size: 30, fill: "#e57a35" }),
-    `<path d="${HEART}" transform="translate(168 262) rotate(12)" fill="#e66aa5"/>`,
-    c.text(fw - 28, 282, "26.10.26", { role: "hand", size: 18, fill: "#4f7fe0", anchor: "end" }),
-    `<rect x="${fw / 2 - 56}" y="-13" width="112" height="28" fill="${FILL.blue}" opacity="0.62" transform="rotate(5 ${fw / 2} 1)"/>`,
+    `<g transform="translate(${fx} ${fy}) rotate(-2.8 ${fw / 2} ${fh / 2})">`,
+    `<rect width="${fw}" height="${fh}" rx="5" fill="${t.paper}" stroke="#000" stroke-opacity="${t.name === "light" ? 0.08 : 0.14}" filter="url(#sh)"/>`,
+    `<image href="data:image/jpeg;base64,${photo}" x="16" y="20" width="336" height="209" preserveAspectRatio="xMidYMid slice" clip-path="url(#ph)"/>`,
+    `<rect x="16.5" y="20.5" width="335" height="208" rx="2" fill="none" stroke="#000" stroke-opacity="0.08"/>`,
+    c.text(46, 270, "Jiuai233", { role: "hand", size: 28, fill: "#e57a35" }),
+    `<path d="${HEART}" transform="translate(170 252) rotate(12) scale(0.92)" fill="#e66aa5"/>`,
+    c.text(fw - 26, 269, "starry live ♫", { role: "hand", size: 17, fill: "#5380dc", anchor: "end" }),
+    // 顶部和纸胶带，把拍立得粘在灯箱下沿
+    `<rect x="${fw / 2 - 54}" y="-14" width="108" height="26" fill="${FILL.blue}" opacity="0.68" transform="rotate(4 ${fw / 2} 0)"/>`,
     `</g>`,
+    // 拍立得左下角贴一枚小电吉他贴纸（避开文字）
+    sticker(t, 44, 424, -24, 0.76, DECAL.guitar(FILL.pink, "#2b2635")),
   );
 
-  const x0 = 478;
-  const right = 864;
-  // 名字做成贴纸字：阴影、白边、本体三层
-  const nameAt = { role: "pop" as const, size: 50 };
-  // 白边是一整块：先膨胀再腐蚀，把 a 的字怀填上，外轮廓不变
-  c.defs.push(`<filter id="solid" x="-0.1" y="-0.6" width="1.2" height="2.2"><feMorphology operator="dilate" radius="5"/><feMorphology operator="erode" radius="5"/></filter>`);
-  const cutEdge = `stroke-width="12" stroke-linejoin="round" filter="url(#solid)"`;
-  c.add(
-    c.text(x0 + 2, 128 + 3, "Jiuai233", { ...nameAt, fill: "#000", opacity: t.shadow, attrs: `stroke="#000" ${cutEdge}` }),
-    c.text(x0, 128, "Jiuai233", { ...nameAt, fill: "#fff", attrs: `stroke="#fff" ${cutEdge}` }),
-    c.text(x0, 128, [["Jiuai", FILL.orange, `stroke="#d27a3e"`], ["233", FILL.blue, `stroke="#6d8fd6"`]], {
-      ...nameAt,
-      attrs: `stroke-width="2.5" stroke-linejoin="round" paint-order="stroke"`,
-    }),
-    sticker(t, 700, 88, 14, 0.8, DECAL.star(FILL.yellow)),
-  );
-
-  // Demo 磁带：外壳粉蓝，标签上的橙蓝色条就是推し色
-  const W = right - x0;
-  const H = 212;
+  // ── 右下：Demo 磁带（把语言占比直接做成磁带标签上的彩条 + 规格字）──
+  const cx0 = 456;
+  const cy0 = 262;
+  const W = 402;
+  const H = 198;
   const mid = W / 2;
   const hole = "#1b1922";
-  c.css.push(
-    ".reel{transform-box:fill-box;transform-origin:center;animation:reel 2.4s linear infinite}",
-    "@keyframes reel{to{transform:rotate(360deg)}}",
-  );
   c.defs.push(
     `<clipPath id="shell"><rect width="${W}" height="${H}" rx="14"/></clipPath>`,
-    `<clipPath id="win"><rect x="${mid - 96}" y="66" width="192" height="50" rx="25"/></clipPath>`,
+    `<clipPath id="win"><rect x="${mid - 92}" y="53" width="184" height="44" rx="22"/></clipPath>`,
+    `<clipPath id="langBar"><rect x="30" y="108" width="${W - 60}" height="8" rx="4"/></clipPath>`,
   );
   const reel = (cx: number, spool: number, delay: number) =>
     [
-      `<circle cx="${cx}" cy="91" r="${spool}" fill="#5b4a3f"/>`,
+      `<circle cx="${cx}" cy="75" r="${spool}" fill="#5b4a3f"/>`,
       `<g class="reel" style="animation-delay:${delay}s">`,
-      `<circle cx="${cx}" cy="91" r="10" fill="#f4f2f7"/>`,
-      `<circle cx="${cx}" cy="91" r="4.5" fill="${hole}"/>`,
-      ...[0, 60, 120, 180, 240, 300].map((a) => `<rect x="${cx - 1.2}" y="83" width="2.4" height="3.6" fill="${hole}" transform="rotate(${a} ${cx} 91)"/>`),
+      `<circle cx="${cx}" cy="75" r="9.5" fill="#f4f2f7"/>`,
+      `<circle cx="${cx}" cy="75" r="4.2" fill="${hole}"/>`,
+      ...[0, 60, 120, 180, 240, 300].map((a) => `<rect x="${cx - 1.1}" y="67.5" width="2.2" height="3.4" fill="${hole}" transform="rotate(${a} ${cx} 75)"/>`),
       `</g>`,
     ].join("");
-  c.add(
-    `<g transform="translate(${x0} 152) rotate(1.5 ${mid} ${H / 2})">`,
-    `<rect width="${W}" height="${H}" rx="14" fill="${FILL.blue}" stroke="#7f9fe0" stroke-width="1.5" filter="url(#sh)"/>`,
-    `<rect x="6" y="6" width="${W - 12}" height="${H - 12}" rx="10" fill="none" stroke="#fff" stroke-opacity="0.3"/>`,
-    `<path d="M${mid - 120},${H} L${mid - 104},${H - 46} H${mid + 104} L${mid + 120},${H} Z" fill="#86a6ea" clip-path="url(#shell)"/>`,
-    `<circle cx="${mid - 70}" cy="${H - 22}" r="5" fill="${hole}"/><circle cx="${mid + 70}" cy="${H - 22}" r="5" fill="${hole}"/>`,
-    `<rect x="${mid - 30}" y="${H - 27}" width="8" height="8" rx="1" fill="${hole}"/><rect x="${mid + 22}" y="${H - 27}" width="8" height="8" rx="1" fill="${hole}"/>`,
-    ...[[14, 14], [W - 14, 14], [14, H - 14], [W - 14, H - 14]].map(
-      ([sx, sy]) => `<circle cx="${sx}" cy="${sy}" r="4.5" fill="#e8eefc" stroke="#7f9fe0"/><path d="M${sx - 2.5},${sy} H${sx + 2.5}" stroke="#7f9fe0"/>`,
-    ),
-    `<rect x="20" y="18" width="${W - 40}" height="124" rx="8" fill="${t.paper}"/>`,
-    `<rect x="20" y="122" width="${W - 40}" height="6" fill="${FILL.orange}"/>`,
-    `<rect x="20" y="130" width="${W - 40}" height="6" fill="#7ea4f0"/>`,
-    `<rect x="32" y="28" width="24" height="24" rx="4" fill="${t.ink}"/>`,
-    c.text(44, 46, "A", { role: "display", size: 15, fill: t.paper, anchor: "middle" }),
-    c.text(66, 47, "Jiuai233  1st demo", { role: "hand", size: 20, fill: t.ink }),
-    c.text(W - 34, 39, "C-60", { role: "mono", size: 12, weight: 700, fill: t.ink, anchor: "end" }),
-    c.text(W - 34, 52, "NORMAL", { role: "mono", size: 8.5, fill: t.ink, anchor: "end", ls: 1.5, opacity: 0.6 }),
-    `<rect x="${mid - 96}" y="66" width="192" height="50" rx="25" fill="${hole}"/>`,
-    `<g clip-path="url(#win)">${reel(mid - 50, 22, 0)}${reel(mid + 50, 15, -0.7)}</g>`,
-    `<rect x="${mid - 80}" y="70" width="160" height="4" rx="2" fill="#fff" opacity="0.1"/>`,
-    `</g>`,
-  );
 
-  // 语言占比
-  const barY = 404;
-  const barW = right - x0;
-  const colors = [FILL.orange, FILL.blue, FILL.pink, FILL.violet];
-  c.defs.push(`<clipPath id="bar"><rect x="${x0}" y="${barY - 10}" width="${barW}" height="10" rx="5"/></clipPath>`);
-  let bx = x0;
-  const segsSvg: string[] = [];
+  const barColors = [FILL.orange, "#6b99f0", FILL.pink, FILL.violet];
+  const barW = W - 60;
+  let lbx = 30;
+  const barRects: string[] = [];
   langs.forEach((l, i) => {
     const w = (l.pct / 100) * barW;
-    segsSvg.push(`<rect x="${n(bx)}" y="${barY - 10}" width="${n(w)}" height="10" fill="${colors[i]}"/>`);
-    bx += w;
+    barRects.push(`<rect x="${n(lbx)}" y="108" width="${n(w)}" height="8" fill="${barColors[i]}"/>`);
+    lbx += w;
   });
-  c.add(`<g clip-path="url(#bar)">${segsSvg.join("")}</g>`);
-  let lx = x0;
+
+  // 磁带标签上的语言图例：超出宽度自动缩写 TypeScript→TS / JavaScript→JS
+  const shortName = (s: string) => (s === "TypeScript" ? "TS" : s === "JavaScript" ? "JS" : s);
+  const useShort =
+    langs.reduce((sum, l) => sum + 12 + measure(`${l.name} ${l.pct.toFixed(0)}%`, 10, true) + 12, 0) > barW;
+  const legendItems: string[] = [];
+  let lx = 32;
   langs.forEach((l, i) => {
-    const label = `${l.name} `;
+    const nm = useShort ? shortName(l.name) : l.name;
     const pct = `${l.pct.toFixed(0)}%`;
-    c.add(`<circle cx="${n(lx + 4)}" cy="${barY + 19}" r="4" fill="${colors[i]}"/>`);
-    c.add(c.text(lx + 13, barY + 23, [[label, t.muted], [pct, t.faint]], { role: "mono", size: 11.5 }));
-    lx += 13 + measure(label + pct, 11.5, true) + 16;
+    legendItems.push(
+      `<circle cx="${n(lx + 3.5)}" cy="128.5" r="3.2" fill="${barColors[i]}"/>`,
+      c.text(lx + 10, 132, [[`${nm} `, "#3c354c"], [pct, "#736b87"]], { role: "mono", size: 10 }),
+    );
+    lx += 10 + measure(`${nm} ${pct}`, 10, true) + 13;
   });
+
+  c.add(
+    `<g transform="translate(${cx0} ${cy0}) rotate(1.8 ${mid} ${H / 2})">`,
+    `<rect width="${W}" height="${H}" rx="14" fill="${FILL.blue}" stroke="#7898db" stroke-width="1.5" filter="url(#sh)"/>`,
+    `<rect x="6" y="6" width="${W - 12}" height="${H - 12}" rx="10" fill="none" stroke="#fff" stroke-opacity="0.32"/>`,
+    `<path d="M${mid - 116},${H} L${mid - 100},${H - 40} H${mid + 100} L${mid + 116},${H} Z" fill="#82a3e8" clip-path="url(#shell)"/>`,
+    `<circle cx="${mid - 68}" cy="${H - 19}" r="4.8" fill="${hole}"/><circle cx="${mid + 68}" cy="${H - 19}" r="4.8" fill="${hole}"/>`,
+    `<rect x="${mid - 28}" y="${H - 24}" width="7.5" height="7.5" rx="1" fill="${hole}"/><rect x="${mid + 20.5}" y="${H - 24}" width="7.5" height="7.5" rx="1" fill="${hole}"/>`,
+    ...[[14, 14], [W - 14, 14], [14, H - 14], [W - 14, H - 14]].map(
+      ([sx, sy]) => `<circle cx="${sx}" cy="${sy}" r="4.2" fill="#e8eefc" stroke="#7898db"/><path d="M${sx - 2.3},${sy} H${sx + 2.3}" stroke="#7898db"/>`,
+    ),
+    // 磁带纸质标签
+    `<rect x="18" y="14" width="${W - 36}" height="130" rx="8" fill="${t.paper}"/>`,
+    `<rect x="30" y="23" width="22" height="22" rx="4" fill="${t.ink}"/>`,
+    c.text(41, 39.5, "A", { role: "display", size: 13.5, fill: t.paper, anchor: "middle" }),
+    c.text(62, 41, "1st demo · code mix", { role: "hand", size: 19, fill: t.ink }),
+    c.text(W - 30, 34, "C-60", { role: "mono", size: 11.5, weight: 700, fill: t.ink, anchor: "end" }),
+    c.text(W - 30, 45.5, "TYPE II", { role: "mono", size: 8, fill: t.ink, anchor: "end", ls: 1.4, opacity: 0.55 }),
+    // 磁带窗口 + 转动卷轴
+    `<rect x="${mid - 92}" y="53" width="184" height="44" rx="22" fill="${hole}"/>`,
+    `<g clip-path="url(#win)">${reel(mid - 48, 20, 0)}${reel(mid + 48, 13.5, -0.7)}</g>`,
+    `<rect x="${mid - 74}" y="57" width="148" height="3.5" rx="2" fill="#fff" opacity="0.1"/>`,
+    // 语言占比条直接作为磁带标签配色条
+    `<g clip-path="url(#langBar)">${barRects.join("")}</g>`,
+    ...legendItems,
+    `</g>`,
+    sticker(t, 854, 444, 18, 0.9, DECAL.pick(FILL.orange)),
+  );
+
   return c;
 }
 
-// ── 3 · 机材表（效果器板）──────────────────────────────────────────────
+// ── 2 · 实体效果器板（无外框，透明底）──────────────────────────────────
 
-const PEDALS: [string, string, string][] = [
-  ["TS", "TypeScript", FILL.blue],
-  ["RE", "React", FILL.cyan],
-  ["NX", "Next.js", FILL.violet],
-  ["ND", "Node.js", FILL.orange],
+const PEDALS: [string, string, string, number][] = [
+  ["TS", "TypeScript", FILL.blue, 0.7],
+  ["RE", "React", FILL.cyan, -0.5],
+  ["NX", "Next.js", FILL.violet, 0.8],
+  ["ND", "Node.js", FILL.orange, -0.7],
 ];
 
 function gear(t: Theme): Card {
-  const c = new Card(t, 900, 274);
-  cardFrame(c);
-  titleRow(c, "GEAR", "機材リスト", [["IN ", t.faint], ["▸ ▸ ▸", t.orange], [" AMP", t.faint]]);
+  const c = new Card(t, 900, 238);
 
-  const board = { x: 24, y: 66, w: 852, h: 186 };
   c.defs.push(
-    `<pattern id="velcro" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0,3 H6" stroke="${t.line}" stroke-width="1"/></pattern>`,
+    `<filter id="boardSh" x="-8%" y="-12%" width="116%" height="132%"><feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#000" flood-opacity="${t.shadow}"/></filter>`,
     `<radialGradient id="metal" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#f4f2f7"/><stop offset="0.6" stop-color="#b9b3c4"/><stop offset="1" stop-color="#7d768a"/></radialGradient>`,
     `<filter id="ledGlow" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="2.5"/></filter>`,
+    `<pattern id="velcro" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0,3 H6" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1"/></pattern>`,
   );
+
+  const board = { x: 42, y: 18, w: 816, h: 196 };
+
+  // 实体铝合金效果器板 + 横梁导轨 + 魔术贴底纹
   c.add(
-    `<rect x="${board.x}" y="${board.y}" width="${board.w}" height="${board.h}" rx="14" fill="${t.board}" stroke="${t.line}"/>`,
-    `<rect x="${board.x + 10}" y="${board.y + 10}" width="${board.w - 20}" height="${board.h - 20}" rx="8" fill="url(#velcro)" opacity="0.5"/>`,
+    `<g filter="url(#boardSh)">`,
+    `<rect x="${board.x}" y="${board.y}" width="${board.w}" height="${board.h}" rx="16" fill="${t.board}" stroke="${t.boardEdge}" stroke-width="1.5"/>`,
+    `</g>`,
+    `<rect x="${board.x + 12}" y="${board.y + 18}" width="${board.w - 24}" height="44" rx="6" fill="${t.boardRail}"/>`,
+    `<rect x="${board.x + 12}" y="${board.y + 76}" width="${board.w - 24}" height="44" rx="6" fill="${t.boardRail}"/>`,
+    `<rect x="${board.x + 12}" y="${board.y + 134}" width="${board.w - 24}" height="44" rx="6" fill="${t.boardRail}"/>`,
+    `<rect x="${board.x + 12}" y="${board.y + 14}" width="${board.w - 24}" height="${board.h - 28}" rx="8" fill="url(#velcro)"/>`,
   );
-  for (const [sx, sy] of [[board.x + 14, board.y + 14], [board.x + board.w - 14, board.y + 14], [board.x + 14, board.y + board.h - 14], [board.x + board.w - 14, board.y + board.h - 14]]) {
-    c.add(`<circle cx="${sx}" cy="${sy}" r="4" fill="${t.surface}" stroke="${t.strong}"/><path d="M${sx - 2.5},${sy} H${sx + 2.5}" stroke="${t.strong}"/>`);
+  for (const [sx, sy] of [
+    [board.x + 14, board.y + 12],
+    [board.x + board.w - 14, board.y + 12],
+    [board.x + 14, board.y + board.h - 12],
+    [board.x + board.w - 14, board.y + board.h - 12],
+  ]) {
+    c.add(screw(sx, sy));
   }
+
+  // 两侧实体音频接口（IN / AMP）
+  c.add(
+    `<rect x="${board.x - 6}" y="${board.y + 114}" width="8" height="22" rx="2" fill="#5e5770" stroke="#23202d"/>`,
+    `<rect x="${board.x + board.w - 2}" y="${board.y + 114}" width="8" height="22" rx="2" fill="#5e5770" stroke="#23202d"/>`,
+    c.text(board.x + 32, board.y + 13.5, "GEAR · IN ▸ AMP", { role: "mono", size: 9, fill: "#8e85a6", ls: 1.8 }),
+  );
 
   c.css.push(
     ".tap{animation:tap .8s steps(1,end) infinite}",
     "@keyframes tap{0%{opacity:1}50%{opacity:.15}}",
-    // 调音表：指针来回找音，停在正中时绿灯亮
     ".cent{animation:cent 3.2s ease-in-out infinite}",
     "@keyframes cent{0%{transform:translateX(-26px)}25%{transform:translateX(12px)}42%{transform:translateX(-6px)}56%,100%{transform:translateX(0)}}",
     ".tuned{animation:tuned 3.2s steps(1,end) infinite}",
     "@keyframes tuned{0%{opacity:.18}56%{opacity:1}}",
   );
 
-  const pw = 120;
-  const ph = 140;
+  const pw = 122;
+  const ph = 144;
   const gap = 28;
   const slots = PEDALS.length + 1;
   const x0 = (900 - (slots * pw + (slots - 1) * gap)) / 2;
-  const py = 90;
+  const py = 46;
   const jack = py + 24;
   const rand = rng("jiuai233-pedals");
   const metal = (cx: number) =>
-    `<circle cx="${cx}" cy="${py + 123}" r="11" fill="url(#metal)" stroke="${t.ink}" stroke-width="1.5"/><circle cx="${cx}" cy="${py + 123}" r="6" fill="none" stroke="${t.ink}" stroke-opacity="0.35"/>`;
-  const cable = (d: string) => `<path d="${d}" fill="none" stroke="${t.cable}" stroke-width="4" stroke-linecap="round"/>`;
+    `<circle cx="${cx}" cy="${py + 126}" r="11" fill="url(#metal)" stroke="${t.ink}" stroke-width="1.5"/><circle cx="${cx}" cy="${py + 126}" r="6" fill="none" stroke="${t.ink}" stroke-opacity="0.35"/>`;
+  const cable = (d: string) => `<path d="${d}" fill="none" stroke="${t.cable}" stroke-width="4.2" stroke-linecap="round"/>`;
 
-  // 第一格是调音表，吉他线从卡片左边进来
+  // 调音表（微倾 -0.8deg，模拟真实魔术贴手贴质感）
   const tx = x0;
   const tc = tx + pw / 2;
   const lcd = "#2b2635";
   const ticks: string[] = [];
   for (let k = -4; k <= 4; k++) {
     const tall = k === 0 ? 5 : 2.5;
-    ticks.push(`<rect x="${n(tc + k * 9 - 0.75)}" y="${py + 74 - tall}" width="1.5" height="${tall * 2}" fill="${lcd}" opacity="${k === 0 ? 0.9 : 0.5}"/>`);
+    ticks.push(`<rect x="${n(tc + k * 9 - 0.75)}" y="${py + 75 - tall}" width="1.5" height="${tall * 2}" fill="${lcd}" opacity="${k === 0 ? 0.9 : 0.5}"/>`);
   }
   c.add(
-    `<rect x="${tx}" y="${py + 5}" width="${pw}" height="${ph}" rx="12" fill="#000" opacity="${t.shadow * 0.7}"/>`,
-    `<rect x="${tx}" y="${py}" width="${pw}" height="${ph}" rx="12" fill="#34303f" stroke="${t.pedalEdge}"/>`,
+    `<g transform="rotate(-0.8 ${tc} ${py + ph / 2})">`,
+    `<rect x="${tx}" y="${py + 6}" width="${pw}" height="${ph}" rx="12" fill="#000" opacity="0.45"/>`,
+    `<rect x="${tx}" y="${py}" width="${pw}" height="${ph}" rx="12" fill="#353142" stroke="rgba(255,255,255,0.12)"/>`,
     `<circle cx="${tc - 16}" cy="${py + 15}" r="2.6" fill="#ff7d94" opacity="0.35"/>`,
     `<circle cx="${tc + 16}" cy="${py + 15}" r="2.6" fill="#ff7d94" opacity="0.35"/>`,
     `<g class="tuned"><circle cx="${tc}" cy="${py + 15}" r="5" fill="${FILL.green}" filter="url(#ledGlow)" opacity="0.9"/><circle cx="${tc}" cy="${py + 15}" r="3" fill="#c9f2d4"/></g>`,
-    `<rect x="${tx + 12}" y="${py + 28}" width="${pw - 24}" height="56" rx="6" fill="${FILL.yellow}"/>`,
+    `<rect x="${tx + 12}" y="${py + 28}" width="${pw - 24}" height="57" rx="6" fill="${FILL.yellow}"/>`,
     c.text(tc, py + 60, "A", { role: "display", size: 26, fill: lcd, anchor: "middle" }),
     c.text(tx + pw - 18, py + 41, "440", { role: "mono", size: 8, fill: lcd, anchor: "end", opacity: 0.6 }),
     ...ticks,
-    `<path class="cent" d="M${tc - 4},${py + 64} L${tc + 4},${py + 64} L${tc},${py + 69} Z" fill="${lcd}"/>`,
-    c.text(tc, py + 105, "TUNER", { role: "mono", size: 10.5, weight: 700, fill: "#f7f4f0", anchor: "middle", ls: 2, opacity: 0.8 }),
+    `<path class="cent" d="M${tc - 4},${py + 65} L${tc + 4},${py + 65} L${tc},${py + 70} Z" fill="${lcd}"/>`,
+    c.text(tc, py + 107, "TUNER", { role: "mono", size: 10.5, weight: 700, fill: "#f7f4f0", anchor: "middle", ls: 2, opacity: 0.85 }),
     metal(tc),
+    `</g>`,
   );
 
   const last = x0 + (slots - 1) * (pw + gap) + pw;
-  c.defs.push(`<clipPath id="gearClip"><rect width="900" height="274" rx="20"/></clipPath>`);
   const cables: string[] = [
-    cable(`M-6,${py + 104} C${x0 - 54},${py + 104} ${x0 - 16},${jack - 30} ${x0 + 6},${jack}`),
-    cable(`M${last - 6},${jack} C${last + 16},${jack - 30} ${last + 54},${py + 104} 906,${py + 104}`),
+    cable(`M${board.x - 6},${board.y + 125} C${board.x + 14},${board.y + 125} ${x0 - 22},${jack - 12} ${x0 + 6},${jack}`),
+    cable(`M${last - 6},${jack} C${last + 22},${jack - 12} ${board.x + board.w - 14},${board.y + 125} ${board.x + board.w + 6},${board.y + 125}`),
   ];
-  PEDALS.forEach(([abbr, name, color], i) => {
+
+  PEDALS.forEach(([abbr, name, color, rot], i) => {
     const px = x0 + (i + 1) * (pw + gap);
     const cx = px + pw / 2;
     const blink = abbr === "ND" ? ' class="tap"' : "";
-    c.add(
-      `<rect x="${px}" y="${py + 5}" width="${pw}" height="${ph}" rx="12" fill="#000" opacity="${t.shadow * 0.7}"/>`,
+    const bodyParts: string[] = [
+      `<g transform="rotate(${rot} ${cx} ${py + ph / 2})">`,
+      `<rect x="${px}" y="${py + 6}" width="${pw}" height="${ph}" rx="12" fill="#000" opacity="0.42"/>`,
       `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" rx="12" fill="${color}" stroke="${t.pedalEdge}"/>`,
+      `<rect x="${px + 2}" y="${py + 1.5}" width="${pw - 4}" height="3" rx="1.5" fill="#fff" opacity="0.28"/>`,
       `<g${blink}><circle cx="${cx}" cy="${py + 15}" r="5" fill="#ff5c7a" filter="url(#ledGlow)" opacity="0.9"/><circle cx="${cx}" cy="${py + 15}" r="3" fill="#ff7d94"/></g>`,
-    );
+    ];
     for (const kx of [px + 28, px + pw - 28]) {
       const a = (-135 + rand() * 270) * (Math.PI / 180);
-      const ky = py + 40;
-      c.add(
+      const ky = py + 41;
+      bodyParts.push(
         `<circle cx="${kx}" cy="${ky}" r="11" fill="${t.ink}"/>`,
         `<line x1="${kx}" y1="${ky}" x2="${n(kx + Math.sin(a) * 8)}" y2="${n(ky - Math.cos(a) * 8)}" stroke="${t.paper}" stroke-width="2" stroke-linecap="round"/>`,
       );
     }
-    c.add(c.text(cx, py + 88, abbr, { role: "display", size: 28, fill: t.ink, anchor: "middle" }));
-    c.add(c.text(cx, py + 105, name, { role: "mono", size: 10.5, fill: t.ink, anchor: "middle", opacity: 0.72 }));
-    c.add(metal(cx));
+    bodyParts.push(
+      c.text(cx, py + 89, abbr, { role: "display", size: 28, fill: t.ink, anchor: "middle" }),
+      c.text(cx, py + 106, name, { role: "mono", size: 10.5, fill: t.ink, anchor: "middle", opacity: 0.76 }),
+      metal(cx),
+      `</g>`,
+    );
+    c.add(...bodyParts);
+
     const a = px - gap - 6;
     const b = px + 6;
     cables.push(cable(`M${a},${jack} C${a + 8},${jack - 34} ${b - 8},${jack - 34} ${b},${jack}`));
   });
-  c.add(`<g clip-path="url(#gearClip)">${cables.join("")}</g>`);
+  c.add(...cables);
 
   // 踏板上随手贴的贴纸
   const at = (i: number) => x0 + (i + 1) * (pw + gap);
   c.add(
-    sticker(t, at(0) + 18, py + 124, -12, 0.72, DECAL.star(FILL.yellow)),
-    sticker(t, at(2) + pw - 12, py + 8, 16, 0.78, DECAL.heart(FILL.pink)),
+    sticker(t, at(0) + 16, py + 130, -14, 0.74, DECAL.star(FILL.yellow)),
+    sticker(t, at(2) + pw - 10, py + 8, 16, 0.78, DECAL.heart(FILL.pink)),
   );
   return c;
 }
 
-// ── 4 · 出勤表（应援棒海）──────────────────────────────────────────────
-
-const LEVEL: Record<string, number> = { NONE: 0, FIRST_QUARTILE: 1, SECOND_QUARTILE: 2, THIRD_QUARTILE: 3, FOURTH_QUARTILE: 4 };
-
-function attendance(t: Theme): Card {
-  const c = new Card(t, 900, 268);
-  cardFrame(c);
-  titleRow(c, "ATTENDANCE", "出勤表 · 近一年", [[`${contributions}`, t.orange], [" 次贡献", t.faint]]);
-
-  c.css.push(
-    ".pl{transform-box:fill-box;transform-origin:50% 100%;animation:sway 1.6s ease-in-out infinite alternate}",
-    "@keyframes sway{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}",
-  );
-  c.defs.push(`<filter id="plGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>`);
-
-  const x0 = 66;
-  const x1 = 858;
-  const px = (x1 - x0) / weeks.length;
-  const y0 = 92;
-  const py = 17;
-  const glows: string[] = [];
-  const lights: string[] = [];
-
-  let lastMonth = -1;
-  let lastLabelWeek = -10;
-  weeks.forEach((w, wi) => {
-    const first = w.contributionDays[0];
-    const month = Number(first.date.slice(5, 7));
-    if (month !== lastMonth) {
-      if (wi - lastLabelWeek >= 3 && wi > 0) {
-        c.add(c.text(x0 + wi * px, 80, `${month}月`, { size: 11, fill: t.faint }));
-        lastLabelWeek = wi;
-      }
-      lastMonth = month;
-    }
-    for (const d of w.contributionDays) {
-      const cx = x0 + wi * px + px / 2;
-      const cy = y0 + d.weekday * py + py / 2;
-      const lv = LEVEL[d.contributionLevel] ?? 0;
-      if (lv === 0) {
-        lights.push(`<circle cx="${n(cx)}" cy="${n(cy)}" r="1.8" fill="${t.strong}" opacity="0.5"/>`);
-        continue;
-      }
-      if (lv >= 3) glows.push(`<circle cx="${n(cx)}" cy="${n(cy - 2.5)}" r="7.5" fill="${t.levels[lv]}"/>`);
-      lights.push(
-        `<g class="pl" style="animation-delay:${n(-wi * 0.09)}s">`,
-        `<rect x="${n(cx - 3.25)}" y="${n(cy - 8)}" width="6.5" height="11" rx="3.25" fill="${t.levels[lv]}"/>`,
-        `<rect x="${n(cx - 2.25)}" y="${n(cy + 3)}" width="4.5" height="5" rx="1" fill="${t.grip}"/>`,
-        `</g>`,
-      );
-    }
-  });
-  for (const [r, label] of [[1, "一"], [3, "三"], [5, "五"]] as const) {
-    c.add(c.text(44, y0 + r * py + py / 2 + 4, label, { size: 11, fill: t.faint, anchor: "middle" }));
-  }
-  c.add(`<g filter="url(#plGlow)" opacity="${t.glow * 0.8}">${glows.join("")}</g>`, ...lights);
-
-  const [, hm, hd] = hottest.date.split("-").map(Number);
-  c.add(
-    c.text(
-      x0,
-      244,
-      [
-        ["最长连续 ", t.faint], [`${bestStreak}`], [" 天", t.muted], ["  ·  ", t.faint],
-        ["最热 ", t.faint], [`${hm}/${hd}`], [`  ${hottest.contributionCount} 次`, t.muted],
-      ],
-      { role: "mono", size: 12 },
-    ),
-  );
-  // 图例：少 → 多
-  let lx = x1;
-  c.add(c.text(lx, 244, "多", { size: 11, fill: t.faint, anchor: "end" }));
-  lx -= 24;
-  for (let lv = 4; lv >= 0; lv--) {
-    const cy = 239;
-    if (lv === 0) c.add(`<circle cx="${lx}" cy="${cy}" r="1.6" fill="${t.strong}" opacity="0.5"/>`);
-    else c.add(`<rect x="${lx - 2.75}" y="${cy - 7}" width="5.5" height="10" rx="2.75" fill="${t.levels[lv]}"/><rect x="${lx - 2}" y="${cy + 3}" width="4" height="4.5" rx="1" fill="${t.grip}"/>`);
-    lx -= 14;
-  }
-  c.add(c.text(lx - 2, 244, "少", { size: 11, fill: t.faint, anchor: "end" }));
-  return c;
-}
-
-// ── 5 · 终演（门票半券）────────────────────────────────────────────────
+// ── 3A · 终演 7 寸黑胶单曲（暖纸封套 + 半露旋转黑胶，无照片）────────────
 
 function finale(t: Theme): Card {
-  const c = new Card(t, 900, 220);
-  const x0 = 16, y0 = 12, x1 = 884, y1 = 208, r = 16, nx = 676, nr = 13;
-  const ticket = [
-    `M${x0 + r},${y0}`, `H${nx - nr}`, `A${nr},${nr} 0 0 0 ${nx + nr},${y0}`, `H${x1 - r}`, `A${r},${r} 0 0 1 ${x1},${y0 + r}`,
-    `V${y1 - r}`, `A${r},${r} 0 0 1 ${x1 - r},${y1}`, `H${nx + nr}`, `A${nr},${nr} 0 0 0 ${nx - nr},${y1}`, `H${x0 + r}`,
-    `A${r},${r} 0 0 1 ${x0},${y1 - r}`, `V${y0 + r}`, `A${r},${r} 0 0 1 ${x0 + r},${y0}`, "Z",
-  ].join(" ");
-  c.add(
-    `<path d="${ticket}" fill="${t.card}" stroke="${t.line}"/>`,
-    `<line x1="${nx}" y1="${y0 + nr + 6}" x2="${nx}" y2="${y1 - nr - 6}" stroke="${t.strong}" stroke-dasharray="2 6" stroke-linecap="round"/>`,
+  const c = new Card(t, 488, 240);
+  const sx = 18;
+  const sy = 22;
+  const sw = 314;
+  const sh = 196;
+  const vx = sx + sw + 34; // 366，圆盘露出约 68%，中心标贴完整可见
+  const vy = sy + sh / 2; // 120
+  const vr = 90;
+
+  c.css.push(
+    ".vinyl{transform-box:fill-box;transform-origin:center;animation:vinyl 14s linear infinite}",
+    "@keyframes vinyl{to{transform:rotate(360deg)}}",
+  );
+  c.defs.push(
+    `<filter id="slSh" x="-10%" y="-14%" width="124%" height="134%"><feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#000" flood-opacity="${t.shadow}"/></filter>`,
+    `<filter id="vnSh" x="-14%" y="-14%" width="132%" height="132%"><feDropShadow dx="2" dy="6" stdDeviation="7" flood-color="#000" flood-opacity="${t.shadow * 0.9}"/></filter>`,
+    `<filter id="softBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="20"/></filter>`,
+    `<clipPath id="slClip"><rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" rx="8"/></clipPath>`,
+    `<clipPath id="vnClip"><circle cx="${vx}" cy="${vy}" r="${vr}"/></clipPath>`,
+    `<linearGradient id="obiGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${FILL.orange}"/><stop offset="0.52" stop-color="${FILL.pink}"/><stop offset="1" stop-color="${FILL.blue}"/></linearGradient>`,
+    `<linearGradient id="vinylSheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/><stop offset="0.32" stop-color="#ffffff" stop-opacity="0"/><stop offset="0.68" stop-color="#ffffff" stop-opacity="0"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.13"/></linearGradient>`,
   );
 
-  c.add(`<path d="${PICK}" transform="translate(52 45) rotate(-14)" fill="${t.orange}"/>`);
-  c.add(c.text(68, 50, "FINALE", { role: "mono", size: 13, weight: 700, ls: 2.5 }));
-  c.add(c.text(68 + 6 * 10.3 + 10, 50, "終演", { size: 12.5, fill: t.muted }));
-  // 结束乐队《忘れてやらない》的歌词，上中下日
-  c.add(c.text(40, 108, [["「", t.orange], ["把错归结于天气吧"], ["」", t.orange]], { role: "zh", size: 32 }));
-  c.add(c.text(54, 144, "ぜんぶ天気のせいでいいよ", { role: "hand", size: 18, fill: t.muted }));
-  c.add(c.text(54 + 12 * 18 + 16, 144, "結束バンド「忘れてやらない」", { size: 12, fill: t.faint }));
-  c.add(c.text(48, 184, `# 最后更新 · ${dotted(today)}`, { role: "mono", size: 11.5, fill: t.faint }));
+  // 黑胶沟槽
+  const grooves = [82, 74, 66, 58, 50, 42]
+    .map((r) => `<circle cx="${vx}" cy="${vy}" r="${r}" fill="none" stroke="#ffffff" stroke-opacity="${r === 42 ? 0.14 : 0.065}" stroke-width="${r === 42 ? 1.2 : 0.8}"/>`)
+    .join("");
 
-  const sx = (nx + x1) / 2;
-  c.add(c.text(sx, 48, "ADMIT ONE", { role: "mono", size: 11, fill: t.faint, anchor: "middle", ls: 3 }));
-  c.add(c.text(sx, 74, "整理番号", { size: 12, fill: t.muted, anchor: "middle" }));
-  c.add(c.text(sx, 116, "No.233", { role: "display", size: 34, fill: t.orange, anchor: "middle" }));
-  const rand = rng(user.login);
-  const bars: string[] = [];
-  for (let x = sx - 64; x < sx + 64; ) {
-    const w = 1 + Math.floor(rand() * 3);
-    bars.push(`<rect x="${n(x)}" y="132" width="${w}" height="30" fill="${t.text}" opacity="0.8"/>`);
-    x += w + 1 + Math.floor(rand() * 3);
-  }
-  c.add(...bars);
-  c.add(c.text(sx, 184, dotted(today), { role: "mono", size: 11, fill: t.faint, anchor: "middle", ls: 1 }));
-
-  // 入场时盖的章
-  c.add(
-    `<g transform="translate(850 58) rotate(-16)" opacity="0.85">`,
-    `<circle r="27" fill="none" stroke="${t.pink}" stroke-width="2"/>`,
-    `<circle r="22.5" fill="none" stroke="${t.pink}" stroke-width="0.8"/>`,
-    c.text(0, 2, "入場済", { role: "display", size: 11, fill: t.pink, anchor: "middle" }),
-    c.text(0, 13, dotted(today).slice(2), { role: "mono", size: 6.5, fill: t.pink, anchor: "middle" }),
+  // 天气小云朵与太阳手绘线稿（呼应“把错归结于天气吧”）
+  const weatherDoodle = [
+    `<g transform="translate(${sx + sw - 54} ${sy + 38})" fill="none" stroke-linecap="round" stroke-linejoin="round">`,
+    // 小太阳
+    `<circle cx="14" cy="-6" r="7" fill="${FILL.yellow}" fill-opacity="0.55" stroke="${FILL.orange}" stroke-width="1.6"/>`,
+    `<path d="M14,-17 V-19 M23,-14 L25,-16 M25,-6 H27 M22,2 L24,4" stroke="${FILL.orange}" stroke-width="1.4"/>`,
+    // 小云朵
+    `<path d="M-8,8 H14 C18,8 20,5 19,2 C18,-1 15,-2 12,-1 C11,-6 6,-9 1,-8 C-4,-7 -7,-3 -7,1 C-11,1 -13,4 -12,6.5 C-11.3,7.8 -9.8,8 -8,8 Z" fill="${t.paper}" stroke="#7f9de0" stroke-width="1.6"/>`,
     `</g>`,
+  ].join("");
+
+  c.add(
+    `<g transform="rotate(-1.4 244 120)">`,
+    // ── 右侧：半露出的 7 寸黑胶唱片 ──
+    `<g filter="url(#vnSh)">`,
+    `<circle cx="${vx}" cy="${vy}" r="${vr}" fill="#171520" stroke="#342e42" stroke-width="1.2"/>`,
+    `</g>`,
+    // 静态唱片反光（高光不随碟片转，符合真实物理）
+    `<g clip-path="url(#vnClip)">`,
+    grooves,
+    `<path d="M${vx},${vy} L${vx - 70},${vy - 88} L${vx + 10},${vy - 96} Z" fill="#ffffff" opacity="0.06"/>`,
+    `<path d="M${vx},${vy} L${vx + 72},${vy + 86} L${vx - 12},${vy + 96} Z" fill="#ffffff" opacity="0.055"/>`,
+    `<circle cx="${vx}" cy="${vy}" r="${vr}" fill="url(#vinylSheen)"/>`,
+    `</g>`,
+    // 缓缓旋转的中心单曲标贴
+    `<g class="vinyl">`,
+    `<circle cx="${vx}" cy="${vy}" r="34" fill="${FILL.orange}"/>`,
+    `<circle cx="${vx}" cy="${vy}" r="31" fill="none" stroke="#fff7ef" stroke-width="1.2" stroke-opacity="0.7"/>`,
+    `<path d="M${vx - 34},${vy} A34,34 0 0 0 ${vx + 34},${vy} Z" fill="${FILL.pink}" opacity="0.55"/>`,
+    c.text(vx, vy - 15, "SIDE B", { role: "mono", size: 7.5, weight: 700, fill: "#2b2635", anchor: "middle", ls: 1.4 }),
+    c.text(vx, vy + 21, "No.233", { role: "mono", size: 8.5, weight: 700, fill: "#2b2635", anchor: "middle", ls: 0.8 }),
+    `<circle cx="${vx}" cy="${vy}" r="7.5" fill="#171520" stroke="#fff7ef" stroke-width="1.2" stroke-opacity="0.6"/>`,
+    `</g>`,
+    // ── 左侧：暖纸厚卡封套（压在黑胶上方）──
+    `<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" rx="8" fill="${t.paper}" stroke="#000" stroke-opacity="${t.name === "light" ? 0.09 : 0.16}" filter="url(#slSh)"/>`,
+    `<g clip-path="url(#slClip)">`,
+    // 封套底面极淡的水彩氛围光晕（马卡龙橙粉蓝）
+    `<circle cx="${sx + 108}" cy="${sy + 54}" r="66" fill="${FILL.orange}" opacity="0.16" filter="url(#softBlur)"/>`,
+    `<circle cx="${sx + 258}" cy="${sy + 148}" r="74" fill="${FILL.blue}" opacity="0.2" filter="url(#softBlur)"/>`,
+    `<circle cx="${sx + 206}" cy="${sy + 48}" r="50" fill="${FILL.pink}" opacity="0.14" filter="url(#softBlur)"/>`,
+    // 日系唱片 OBI 侧标腰封
+    `<rect x="${sx}" y="${sy}" width="22" height="${sh}" fill="url(#obiGrad)"/>`,
+    `<line x1="${sx + 22}" y1="${sy}" x2="${sx + 22}" y2="${sy + sh}" stroke="#2b2635" stroke-opacity="0.12"/>`,
+    c.text(sx + 14.5, sy + sh / 2, "ENCORE · 45 RPM", {
+      role: "mono",
+      size: 8.5,
+      weight: 700,
+      fill: "#2b2635",
+      anchor: "middle",
+      ls: 2,
+      attrs: `transform="rotate(-90 ${sx + 14.5} ${sy + sh / 2})"`,
+    }),
+    // 右侧封套开口弧形小缺口（真实黑胶套抽口）
+    `<circle cx="${sx + sw + 2}" cy="${vy}" r="11" fill="#171520" opacity="0.14"/>`,
+    `</g>`,
+    // 封套正面排版
+    weatherDoodle,
+    c.text(sx + 38, sy + 36, "7\" SINGLE · 終演", { role: "mono", size: 9.5, fill: "#7d7491", ls: 1.6 }),
+    c.text(sx + 30, sy + 94, [["「", "#d66c26"], ["把错归结于天气吧", "#2b2635"], ["」", "#d66c26"]], { role: "zh", size: 24.5 }),
+    `<path d="M${sx + 44},${sy + 104} Q${sx + 84},${sy + 100} ${sx + 124},${sy + 105} T${sx + 204},${sy + 104} T${sx + 260},${sy + 105}" fill="none" stroke="${FILL.pink}" stroke-width="2.2" stroke-linecap="round" opacity="0.85"/>`,
+    c.text(sx + 40, sy + 132, "ぜんぶ天気のせいでいいよ", { role: "hand", size: 15.5, fill: "#59506b" }),
+    `<line x1="${sx + 38}" y1="${sy + 156}" x2="${sx + sw - 22}" y2="${sy + 156}" stroke="#2b2635" stroke-opacity="0.1" stroke-dasharray="3 4"/>`,
+    c.text(sx + 38, sy + 178, "結束バンド「忘れてやらない」", { size: 11.5, fill: "#6e6582" }),
+    c.text(sx + sw - 22, sy + 178, "No.233", { role: "hand", size: 15, fill: "#d66c26", anchor: "end" }),
+    `</g>`,
+    // 封套左下角贴一枚小拨片贴纸
+    sticker(t, sx + 12, sy + sh - 6, -18, 0.85, DECAL.pick(FILL.yellow)),
   );
+
   return c;
 }
 
-// ── 6 · B 站贴纸（README 里单独包一层链接）────────────────────────────
+// ── 3B · B 站 Live House 通行证（可点击，与拍立得并排居中对齐）──────────
 
 function linkBili(t: Theme): Card {
-  const c = new Card(t, 320, 104);
+  const c = new Card(t, 272, 240);
   const ink = "#2b2635";
-  const ax = 62;
-  const cy = 54;
-  c.defs.push(`<clipPath id="face"><circle cx="${ax}" cy="${cy}" r="32"/></clipPath>`);
+  const px = 22;
+  const py = 52;
+  const pw = 228;
+  const ph = 142;
+  const ax = px + 44;
+  const ay = py + 90;
 
-  // 头像左上角的三道强调线，画在贴纸外面
-  for (const a of [200, 225, 250]) {
-    const r = (a * Math.PI) / 180;
-    const p = (d: number) => `${n(ax + Math.cos(r) * d)},${n(cy + Math.sin(r) * d)}`;
-    c.add(`<path d="M${p(45)} L${p(54)}" stroke="${t.pink}" stroke-width="3" stroke-linecap="round"/>`);
-  }
+  c.defs.push(
+    `<filter id="psSh" x="-12%" y="-14%" width="128%" height="136%"><feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#000" flood-opacity="${t.shadow}"/></filter>`,
+    `<clipPath id="passClip"><rect x="${px}" y="${py}" width="${pw}" height="${ph}" rx="16"/></clipPath>`,
+    `<clipPath id="face"><circle cx="${ax}" cy="${ay}" r="26"/></clipPath>`,
+  );
 
   const tv = [
     `<g fill="none" stroke="${ink}" stroke-linecap="round" stroke-linejoin="round">`,
-    `<path d="M-6,-13 L-2,-8 M6,-13 L2,-8" stroke-width="2.4"/>`,
-    `<rect x="-13" y="-8" width="26" height="19" rx="5" stroke-width="2.6"/>`,
-    `<path d="M-7.5,-1.5 L-3.5,0.5 M7.5,-1.5 L3.5,0.5" stroke-width="2.2"/>`,
+    `<path d="M-4.5,-10 L-1.5,-6 M4.5,-10 L1.5,-6" stroke-width="2"/>`,
+    `<rect x="-10" y="-6" width="20" height="15" rx="4" stroke-width="2.1"/>`,
+    `<path d="M-5.5,-1 L-2.5,0.6 M5.5,-1 L2.5,0.6" stroke-width="1.8"/>`,
     `</g>`,
   ].join("");
-  const body = [
-    `<rect x="${ax}" y="28" width="240" height="52" rx="26" fill="${FILL.pink}"/>`,
-    `<circle cx="${ax}" cy="${cy}" r="36" fill="${FILL.pink}"/>`,
-    `<image href="data:image/jpeg;base64,${BILI.face}" x="${ax - 32}" y="${cy - 32}" width="64" height="64" clip-path="url(#face)"/>`,
-    `<g transform="translate(${ax + 54} ${cy + 1})">${tv}</g>`,
-    c.text(ax + 76, cy - 6, "bilibili", { role: "pop", size: 13, fill: ink, opacity: 0.75 }),
-    c.text(ax + 76, cy + 16, BILI.name, { role: "pop", size: 22, fill: ink }),
-    `<circle cx="${ax + 214}" cy="${cy}" r="15" fill="#fff"/>`,
-    `<path d="M${ax + 209},${cy - 7} L${ax + 221},${cy} L${ax + 209},${cy + 7} Z" fill="#c9578d" stroke="#c9578d" stroke-width="2" stroke-linejoin="round"/>`,
-  ].join("");
-  const cut = `<rect x="${ax}" y="28" width="240" height="52" rx="26"/><circle cx="${ax}" cy="${cy}" r="36"/>`;
-  c.add(`<g transform="rotate(-2 160 52)">${sticker(t, 0, 0, 0, 1, { cut, body }, 4)}</g>`);
+
+  c.add(
+    `<g transform="rotate(2.2 136 122)">`,
+    // 顶部挂绳金属夹
+    `<rect x="120" y="${py - 14}" width="32" height="14" rx="4" fill="#8b839e" stroke="${ink}" stroke-width="1.2"/>`,
+    `<rect x="127" y="${py - 10}" width="18" height="4" rx="2" fill="${t.chassis}"/>`,
+    // 卡片本体
+    `<rect x="${px}" y="${py}" width="${pw}" height="${ph}" rx="16" fill="${t.passBg}" stroke="${t.passEdge}" stroke-width="1.4" filter="url(#psSh)"/>`,
+    // 顶部粉色 PASS 色带
+    `<g clip-path="url(#passClip)">`,
+    `<rect x="${px}" y="${py}" width="${pw}" height="43" fill="${FILL.pink}"/>`,
+    `<rect x="${px}" y="${py + 43}" width="${pw}" height="4" fill="${FILL.orange}"/>`,
+    `</g>`,
+    // 挂绳孔
+    `<rect x="118" y="${py + 7}" width="36" height="6" rx="3" fill="${t.chassis}" opacity="0.45"/>`,
+    // 色带内标识
+    `<g transform="translate(${px + 24} ${py + 28}) scale(0.84)">${tv}</g>`,
+    c.text(px + 42, py + 33, "BACKSTAGE · bilibili", { role: "mono", size: 10.2, weight: 700, fill: ink, ls: 0.7 }),
+    // 下半区：头像 + B 站昵称 + 明确可点击提示按钮
+    `<circle cx="${ax}" cy="${ay}" r="29" fill="${FILL.pink}"/>`,
+    `<image href="data:image/jpeg;base64,${BILI.face}" x="${ax - 26}" y="${ay - 26}" width="52" height="52" clip-path="url(#face)"/>`,
+    `<circle cx="${ax}" cy="${ay}" r="26" fill="none" stroke="#fff" stroke-width="2"/>`,
+    c.text(ax + 40, ay - 6, BILI.name, { role: "pop", size: 22, fill: t.text }),
+    // 播放 / 主页小胶囊按钮
+    `<rect x="${ax + 40}" y="${ay + 6}" width="112" height="24" rx="12" fill="${FILL.pink}" opacity="${t.name === "dark" ? 0.92 : 1}"/>`,
+    `<path d="M${ax + 52},${ay + 13} L${ax + 60},${ay + 18} L${ax + 52},${ay + 23} Z" fill="${ink}"/>`,
+    c.text(ax + 66, ay + 22, "去 B 站看看", { role: "body", size: 11.5, weight: 700, fill: ink }),
+    `</g>`,
+    sticker(t, px + pw - 6, py + 14, 16, 0.76, DECAL.star(FILL.yellow)),
+  );
+
   return c;
 }
 
 // ── 输出 ────────────────────────────────────────────────────────────────
 
 const CARDS: [string, (t: Theme) => Card, string][] = [
-  ["header", header, "Jiuai233 · ONE-MAN LIVE「自己一个人也没关系，声音总会被听见」"],
-  ["profile", profile, "成员档案：Jiuai233 的 GitHub 数据"],
-  ["gear", gear, "机材表：Jiuai233 常用的技术栈"],
-  ["attendance", attendance, "出勤表：近一年的贡献"],
-  ["finale", finale, "终演：「把错归结于天气吧」ぜんぶ天気のせいでいいよ"],
-  ["link-bilibili", linkBili, `bilibili：${BILI.name}`],
+  ["hero", hero, "Jiuai233 · ONE-MAN LIVE 招牌、拍立得与 Demo 磁带"],
+  ["gear", gear, "机材表：调音表与 TypeScript、React、Next.js、Node.js 效果器板"],
+  ["finale", finale, "终演 7 寸黑胶单曲：「把错归结于天气吧」ぜんぶ天気のせいでいいよ"],
+  ["link-bilibili", linkBili, `bilibili 通行证：${BILI.name}`],
 ];
 
 for (const t of [DARK, LIGHT]) {
